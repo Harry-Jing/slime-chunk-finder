@@ -1,8 +1,11 @@
 mod java_rand;
 mod coords;
 
+use std::io;
+use std::time::Instant;
 use coords::ChunkCoords;
 use rayon::prelude::*;
+
 
 fn is_slime_chunk(world_seed: i64, chunk_x: i32, chunk_z: i32) -> bool {
     let seed = world_seed
@@ -40,6 +43,12 @@ fn count_slime_chunks_in_radius(world_seed: i64, chunk_x: i32, chunk_z: i32, rad
     count
 }
 
+#[derive(Debug)]
+struct ChunkCount {
+    pub coords: ChunkCoords,
+    pub count: i32,
+}
+
 fn main() {
     let world_seed = 7584197480721263469;
     let min_chunk_x = -10000;
@@ -47,7 +56,10 @@ fn main() {
     let min_chunk_z = -10000;
     let max_chunk_z = 10000;
 
+    
+
     println!("Counting slime chunks in radius 8 for all chunks...");
+    let start_time = Instant::now();
     let coords: Vec<_> = (min_chunk_x..=max_chunk_x).flat_map(|x| {
         (min_chunk_z..=max_chunk_z).map(move |z| (x, z))
     }).collect();
@@ -55,12 +67,24 @@ fn main() {
     let result: Vec<_> = coords.par_iter()
         .map(|&(x, z)| {
             let count = count_slime_chunks_in_radius(world_seed, x, z, 8);
-            (ChunkCoords::new(x, z), count)
+            ChunkCount {
+                coords: ChunkCoords::new(x, z),
+                count,
+            }
         })
         .collect();
 
-    println!("Finished counting slime chunks in radius 8 for all chunks. Sorting...");
+    let elapsed_time = start_time.elapsed();
+    println!("Finished counting slime chunks in radius 8 for all chunks in {:?}. Sorting...", elapsed_time);
     let mut sorted_results = result;
-    sorted_results.par_sort_by_key(|k| -k.1);
-    println!("{:?}", sorted_results[0]);
+    sorted_results.par_sort_by_key(|k| -k.count);
+    
+    println!("Top 10 chunks with the most slime chunks in radius 8:");
+    for i in 0..10 {
+        let chunk_count = &sorted_results[i];
+        println!("{:?} - {}", chunk_count.coords, chunk_count.count);
+    }
+    println!("Press Enter to exit...");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed to read line");
 }
