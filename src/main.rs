@@ -2,6 +2,7 @@ mod java_rand;
 mod coords;
 
 use coords::ChunkCoords;
+use rayon::prelude::*;
 
 fn is_slime_chunk(world_seed: i64, chunk_x: i32, chunk_z: i32) -> bool {
     let seed = world_seed
@@ -41,20 +42,25 @@ fn count_slime_chunks_in_radius(world_seed: i64, chunk_x: i32, chunk_z: i32, rad
 
 fn main() {
     let world_seed = 7584197480721263469;
-    let min_chunk_x = -1000;
-    let max_chunk_x = 1000;
-    let min_chunk_z = -1000;
-    let max_chunk_z = 1000;
+    let min_chunk_x = -10000;
+    let max_chunk_x = 10000;
+    let min_chunk_z = -10000;
+    let max_chunk_z = 10000;
 
-    let mut result: Vec<(ChunkCoords, i32)> = Vec::new();
+    println!("Counting slime chunks in radius 8 for all chunks...");
+    let coords: Vec<_> = (min_chunk_x..=max_chunk_x).flat_map(|x| {
+        (min_chunk_z..=max_chunk_z).map(move |z| (x, z))
+    }).collect();
 
-    print!("Counting slime chunks in radius 8 for all chunks...");
-    for x in min_chunk_x..=max_chunk_x {
-        for z in min_chunk_z..=max_chunk_z {
-            result.push((ChunkCoords::new(x, z), count_slime_chunks_in_radius(world_seed, x, z, 8)));
-        }
-    }
+    let result: Vec<_> = coords.par_iter()
+        .map(|&(x, z)| {
+            let count = count_slime_chunks_in_radius(world_seed, x, z, 8);
+            (ChunkCoords::new(x, z), count)
+        })
+        .collect();
+
     println!("Finished counting slime chunks in radius 8 for all chunks. Sorting...");
-    result.sort_by_key(|k| -k.1);
-    println!("{:?}", result[0]);
+    let mut sorted_results = result;
+    sorted_results.par_sort_by_key(|k| -k.1);
+    println!("{:?}", sorted_results[0]);
 }
