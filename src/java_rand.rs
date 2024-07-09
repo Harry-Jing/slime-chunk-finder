@@ -1,5 +1,8 @@
+//! Java's Random class implementation in Rust.
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// A random number generator that is compatible with Java's Random class.
 pub struct Random {
     seed: AtomicU64,
 }
@@ -27,11 +30,6 @@ impl Random {
             & Self::MASK;
         self.seed.store(next_seed, Ordering::Relaxed);
         (next_seed >> (48 - bits)) as u32
-    }
-
-    #[allow(dead_code)]
-    pub fn next_int(&self) -> i32 {
-        self.next(32) as i32
     }
 
     pub fn next_int_bound(&self, bound: u32) -> i32 {

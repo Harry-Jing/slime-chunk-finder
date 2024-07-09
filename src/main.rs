@@ -4,14 +4,13 @@ mod slime;
 
 use coords::ChunkCoords;
 use rayon::prelude::*;
-use slime::count_slime_chunks_in_radius;
+use slime::count_slime_chunks_in_ring;
 use std::fmt::Display;
 use std::io;
 use std::time::Instant;
 
 use std::io::Write;
 
-#[derive(Debug)]
 struct ChunkCount {
     pub coords: ChunkCoords,
     pub count: i32,
@@ -33,7 +32,7 @@ fn find_chunks_with_most_slime_chunks(
     let result: Vec<ChunkCount> = coords
         .par_iter()
         .map(|&(x, z)| {
-            let count = count_slime_chunks_in_radius(world_seed, x, z, 8);
+            let count = count_slime_chunks_in_ring(world_seed, x, z, 8, 1);
             ChunkCount {
                 coords: ChunkCoords::new(x, z),
                 count,
@@ -51,7 +50,8 @@ fn find_chunks_with_most_slime_chunks(
     sorted_results
 }
 
-fn prompt_for_value<T: std::str::FromStr + Display>(prompt: &str, default: T) -> T {
+
+fn prompt_for_value_with_default<T: std::str::FromStr + Display>(prompt: &str, default: T) -> T {
     loop {
         print!("{} (default: {}): ", prompt, default);
         io::stdout().flush().unwrap();
@@ -76,11 +76,11 @@ fn prompt_for_value<T: std::str::FromStr + Display>(prompt: &str, default: T) ->
 }
 
 fn user_cli() {
-    let world_seed = prompt_for_value("Enter world seed:", 0);
-    let min_chunk_x = prompt_for_value("Enter minimum chunk x-coordinate:", -1000);
-    let max_chunk_x = prompt_for_value("Enter maximum chunk x-coordinate", 1000);
-    let min_chunk_z = prompt_for_value("Enter minimum chunk z-coordinate", -1000);
-    let max_chunk_z = prompt_for_value("Enter maximum chunk z-coordinate", 1000);
+    let world_seed = prompt_for_value_with_default("Enter world seed:", 0);
+    let min_chunk_x = prompt_for_value_with_default("Enter minimum chunk x-coordinate:", -1000);
+    let max_chunk_x = prompt_for_value_with_default("Enter maximum chunk x-coordinate", 1000);
+    let min_chunk_z = prompt_for_value_with_default("Enter minimum chunk z-coordinate", -1000);
+    let max_chunk_z = prompt_for_value_with_default("Enter maximum chunk z-coordinate", 1000);
 
     let sorted_results = find_chunks_with_most_slime_chunks(
         min_chunk_x,
