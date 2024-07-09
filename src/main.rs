@@ -1,7 +1,9 @@
 mod coords;
 mod java_rand;
+mod mask;
 mod slime;
 
+use crate::mask::find_squares_within_circle;
 use coords::ChunkCoords;
 use rayon::prelude::*;
 use slime::count_slime_chunks_in_ring;
@@ -25,6 +27,14 @@ fn find_chunks_with_most_slime_chunks(
 ) -> Vec<ChunkCount> {
     println!("Counting slime chunks in radius 8 for all chunks...");
     let start_time = Instant::now();
+    let lage_circle = find_squares_within_circle(8.5, 8.5, 8.0, 0.5);
+    let small_circle = find_squares_within_circle(8.5, 8.5, 1.0, 0.8);
+
+    let circle_mask_coords = lage_circle
+        .iter()
+        .filter(|&u| !small_circle.contains(u))
+        .collect::<Vec<_>>();
+
     let coords: Vec<(i32, i32)> = (min_chunk_x..=max_chunk_x)
         .flat_map(|x| (min_chunk_z..=max_chunk_z).map(move |z| (x, z)))
         .collect();
@@ -32,7 +42,7 @@ fn find_chunks_with_most_slime_chunks(
     let result: Vec<ChunkCount> = coords
         .par_iter()
         .map(|&(x, z)| {
-            let count = count_slime_chunks_in_ring(world_seed, x, z, 8, 1);
+            let count = count_slime_chunks_in_ring(world_seed, &circle_mask_coords, x, z);
             ChunkCount {
                 coords: ChunkCoords::new(x, z),
                 count,
@@ -49,7 +59,6 @@ fn find_chunks_with_most_slime_chunks(
     sorted_results.par_sort_by_key(|k| -k.count);
     sorted_results
 }
-
 
 fn prompt_for_value_with_default<T: std::str::FromStr + Display>(prompt: &str, default: T) -> T {
     loop {
