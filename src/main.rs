@@ -1,47 +1,15 @@
 mod coords;
 mod java_rand;
+mod slime;
 
 use coords::ChunkCoords;
 use rayon::prelude::*;
+use slime::count_slime_chunks_in_radius;
+use std::fmt::Display;
 use std::io;
-use std::io::Write;
 use std::time::Instant;
 
-fn is_slime_chunk(world_seed: i64, chunk_x: i32, chunk_z: i32) -> bool {
-    let seed = world_seed
-        + (chunk_x as i64 * chunk_x as i64) * 0x4C1906
-        + (chunk_x as i64 * 0x5AC0DB)
-        + (chunk_z as i64 * chunk_z as i64) * 0x4307A7
-        + (chunk_z as i64 * 0x5F24F)
-        ^ 0x3AD8025F;
-    let rng = java_rand::Random::new(seed as u64);
-    rng.next_int_bound(10) == 0
-}
-
-fn get_circle_mask(radius: i32) -> Vec<ChunkCoords> {
-    let mut coords = Vec::new();
-    for x in -radius..=radius {
-        for z in -radius..=radius {
-            if x * x + z * z <= radius * radius {
-                coords.push(ChunkCoords::new(x, z));
-            }
-        }
-    }
-    coords
-}
-
-fn count_slime_chunks_in_radius(world_seed: i64, chunk_x: i32, chunk_z: i32, radius: i32) -> i32 {
-    let circle_mask_coords = get_circle_mask(radius);
-    let mut count = 0;
-    for coord in circle_mask_coords {
-        let x = chunk_x + coord.x;
-        let z = chunk_z + coord.z;
-        if is_slime_chunk(world_seed, x, z) {
-            count += 1;
-        }
-    }
-    count
-}
+use std::io::Write;
 
 #[derive(Debug)]
 struct ChunkCount {
@@ -83,28 +51,36 @@ fn find_chunks_with_most_slime_chunks(
     sorted_results
 }
 
-fn prompt_for_value<T: std::str::FromStr>(prompt: &str, default: T) -> T {
-    print!("{}", prompt);
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    input.trim().parse::<T>().unwrap_or(default)
+fn prompt_for_value<T: std::str::FromStr + Display>(prompt: &str, default: T) -> T {
+    loop {
+        print!("{} (default: {}): ", prompt, default);
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
+        let input = input.trim();
+        if input.is_empty() {
+            return default;
+        }
+
+        match input.trim().parse::<T>() {
+            Ok(value) => return value,
+            Err(_) => {
+                println!("Invalid input. Using default value: {}", default);
+                return default;
+            }
+        }
+    }
 }
 
-fn main() {
-    let world_seed = prompt_for_value("Enter world seed (default: 7584197480721263469):", 0);
-    let min_chunk_x = prompt_for_value(
-        "Enter minimum chunk x-coordinate (default: -10000):",
-        -10000,
-    );
-    let max_chunk_x = prompt_for_value("Enter maximum chunk x-coordinate (default: 10000):", 10000);
-    let min_chunk_z = prompt_for_value(
-        "Enter minimum chunk z-coordinate (default: -10000):",
-        -10000,
-    );
-    let max_chunk_z = prompt_for_value("Enter maximum chunk z-coordinate (default: 10000):", 10000);
+fn user_cli() {
+    let world_seed = prompt_for_value("Enter world seed:", 0);
+    let min_chunk_x = prompt_for_value("Enter minimum chunk x-coordinate:", -1000);
+    let max_chunk_x = prompt_for_value("Enter maximum chunk x-coordinate", 1000);
+    let min_chunk_z = prompt_for_value("Enter minimum chunk z-coordinate", -1000);
+    let max_chunk_z = prompt_for_value("Enter maximum chunk z-coordinate", 1000);
 
     let sorted_results = find_chunks_with_most_slime_chunks(
         min_chunk_x,
@@ -117,7 +93,12 @@ fn main() {
     println!("Top 10 chunks with the most slime chunks in radius 8:");
     for i in 0..10 {
         let chunk_count = &sorted_results[i];
-        println!("{:?} - {}", chunk_count.coords, chunk_count.count);
+        println!(
+            "({}, {}): {} slime chunks",
+            chunk_count.coords.x * 16,
+            chunk_count.coords.z * 16,
+            chunk_count.count
+        );
     }
 
     println!("Press Enter to exit...");
@@ -125,4 +106,8 @@ fn main() {
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");
+}
+
+fn main() {
+    user_cli();
 }
